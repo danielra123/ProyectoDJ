@@ -1,0 +1,465 @@
+import React, { useState, useEffect } from 'react';
+import { Calendar, Laptop, Activity, Clock, Search, Plus, LogOut, Check } from 'lucide-react';
+
+const API_BASE = 'http://localhost:3000/api';
+
+export default function DeviceManagement() {
+  const [activeTab, setActiveTab] = useState('computers');
+  const [computers, setComputers] = useState([]);
+  const [medicalDevices, setMedicalDevices] = useState([]);
+  const [frequentComputers, setFrequentComputers] = useState([]);
+  const [enteredDevices, setEnteredDevices] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [showForm, setShowForm] = useState(false);
+  const [filters, setFilters] = useState({});
+  const [sort, setSort] = useState('');
+
+  // Formularios
+  const [computerForm, setComputerForm] = useState({
+    brand: '',
+    model: '',
+    serialNumber: '',
+    ownerName: '',
+    ownerDocument: '',
+    reason: ''
+  });
+
+  const [medicalDeviceForm, setMedicalDeviceForm] = useState({
+    deviceType: '',
+    brand: '',
+    model: '',
+    serialNumber: '',
+    ownerName: '',
+    ownerDocument: ''
+  });
+
+  useEffect(() => {
+    loadData();
+  }, [activeTab, filters, sort]);
+
+  const buildQueryString = () => {
+    const params = new URLSearchParams();
+    
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value) params.append(`filter[${key}]`, value);
+    });
+    
+    if (sort) params.append('sort', sort);
+    
+    return params.toString();
+  };
+
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      const query = buildQueryString();
+      const endpoint = query ? `?${query}` : '';
+      
+      switch(activeTab) {
+        case 'computers':
+          const comps = await fetch(`${API_BASE}/computers${endpoint}`).then(r => r.json());
+          setComputers(comps);
+          break;
+        case 'medical':
+          const meds = await fetch(`${API_BASE}/medicaldevices${endpoint}`).then(r => r.json());
+          setMedicalDevices(meds);
+          break;
+        case 'frequent':
+          const freq = await fetch(`${API_BASE}/computers/frequent${endpoint}`).then(r => r.json());
+          setFrequentComputers(freq);
+          break;
+        case 'entered':
+          const ent = await fetch(`${API_BASE}/devices/entered${endpoint}`).then(r => r.json());
+          setEnteredDevices(ent);
+          break;
+      }
+    } catch (error) {
+      console.error('Error loading data:', error);
+    }
+    setLoading(false);
+  };
+
+  const handleComputerCheckin = async (e) => {
+    e.preventDefault();
+    const formData = new FormData();
+    Object.entries(computerForm).forEach(([key, value]) => {
+      formData.append(key, value);
+    });
+
+    try {
+      await fetch(`${API_BASE}/computers/checkin`, {
+        method: 'POST',
+        body: formData
+      });
+      setShowForm(false);
+      setComputerForm({
+        brand: '', model: '', serialNumber: '', ownerName: '', ownerDocument: '', reason: ''
+      });
+      loadData();
+    } catch (error) {
+      console.error('Error checking in computer:', error);
+    }
+  };
+
+  const handleMedicalDeviceCheckin = async (e) => {
+    e.preventDefault();
+    try {
+      await fetch(`${API_BASE}/medicaldevices/checkin`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(medicalDeviceForm)
+      });
+      setShowForm(false);
+      setMedicalDeviceForm({
+        deviceType: '', brand: '', model: '', serialNumber: '', ownerName: '', ownerDocument: ''
+      });
+      loadData();
+    } catch (error) {
+      console.error('Error checking in medical device:', error);
+    }
+  };
+
+  const handleRegisterFrequent = async (e) => {
+    e.preventDefault();
+    const formData = new FormData();
+    Object.entries(computerForm).forEach(([key, value]) => {
+      formData.append(key, value);
+    });
+
+    try {
+      await fetch(`${API_BASE}/computers/frequent`, {
+        method: 'POST',
+        body: formData
+      });
+      setShowForm(false);
+      setComputerForm({
+        brand: '', model: '', serialNumber: '', ownerName: '', ownerDocument: '', reason: ''
+      });
+      loadData();
+    } catch (error) {
+      console.error('Error registering frequent computer:', error);
+    }
+  };
+
+  const handleFrequentCheckin = async (id) => {
+    try {
+      await fetch(`${API_BASE}/computers/frequent/checkin/${id}`, {
+        method: 'PATCH'
+      });
+      loadData();
+    } catch (error) {
+      console.error('Error checking in frequent computer:', error);
+    }
+  };
+
+  const handleCheckout = async (id) => {
+    try {
+      await fetch(`${API_BASE}/devices/checkout/${id}`, {
+        method: 'PATCH'
+      });
+      loadData();
+    } catch (error) {
+      console.error('Error checking out device:', error);
+    }
+  };
+
+  const renderComputerForm = () => (
+    <form onSubmit={handleComputerCheckin} className="bg-white p-6 rounded-lg shadow-lg mb-6">
+      <h3 className="text-xl font-semibold mb-4 text-gray-800">Registrar Computadora</h3>
+      <div className="grid grid-cols-2 gap-4">
+        <input
+          type="text"
+          placeholder="Marca"
+          value={computerForm.brand}
+          onChange={e => setComputerForm({...computerForm, brand: e.target.value})}
+          className="border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          required
+        />
+        <input
+          type="text"
+          placeholder="Modelo"
+          value={computerForm.model}
+          onChange={e => setComputerForm({...computerForm, model: e.target.value})}
+          className="border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          required
+        />
+        <input
+          type="text"
+          placeholder="Número de Serie"
+          value={computerForm.serialNumber}
+          onChange={e => setComputerForm({...computerForm, serialNumber: e.target.value})}
+          className="border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          required
+        />
+        <input
+          type="text"
+          placeholder="Nombre del Propietario"
+          value={computerForm.ownerName}
+          onChange={e => setComputerForm({...computerForm, ownerName: e.target.value})}
+          className="border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          required
+        />
+        <input
+          type="text"
+          placeholder="Documento del Propietario"
+          value={computerForm.ownerDocument}
+          onChange={e => setComputerForm({...computerForm, ownerDocument: e.target.value})}
+          className="border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          required
+        />
+        <input
+          type="text"
+          placeholder="Razón"
+          value={computerForm.reason}
+          onChange={e => setComputerForm({...computerForm, reason: e.target.value})}
+          className="border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          required
+        />
+      </div>
+      <div className="flex gap-2 mt-4">
+        <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+          Registrar
+        </button>
+        <button type="button" onClick={() => setShowForm(false)} className="bg-gray-400 text-white px-4 py-2 rounded hover:bg-gray-500">
+          Cancelar
+        </button>
+      </div>
+    </form>
+  );
+
+  const renderMedicalDeviceForm = () => (
+    <form onSubmit={handleMedicalDeviceCheckin} className="bg-white p-6 rounded-lg shadow-lg mb-6">
+      <h3 className="text-xl font-semibold mb-4 text-gray-800">Registrar Dispositivo Médico</h3>
+      <div className="grid grid-cols-2 gap-4">
+        <input
+          type="text"
+          placeholder="Tipo de Dispositivo"
+          value={medicalDeviceForm.deviceType}
+          onChange={e => setMedicalDeviceForm({...medicalDeviceForm, deviceType: e.target.value})}
+          className="border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
+          required
+        />
+        <input
+          type="text"
+          placeholder="Marca"
+          value={medicalDeviceForm.brand}
+          onChange={e => setMedicalDeviceForm({...medicalDeviceForm, brand: e.target.value})}
+          className="border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
+          required
+        />
+        <input
+          type="text"
+          placeholder="Modelo"
+          value={medicalDeviceForm.model}
+          onChange={e => setMedicalDeviceForm({...medicalDeviceForm, model: e.target.value})}
+          className="border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
+          required
+        />
+        <input
+          type="text"
+          placeholder="Número de Serie"
+          value={medicalDeviceForm.serialNumber}
+          onChange={e => setMedicalDeviceForm({...medicalDeviceForm, serialNumber: e.target.value})}
+          className="border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
+          required
+        />
+        <input
+          type="text"
+          placeholder="Nombre del Propietario"
+          value={medicalDeviceForm.ownerName}
+          onChange={e => setMedicalDeviceForm({...medicalDeviceForm, ownerName: e.target.value})}
+          className="border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
+          required
+        />
+        <input
+          type="text"
+          placeholder="Documento del Propietario"
+          value={medicalDeviceForm.ownerDocument}
+          onChange={e => setMedicalDeviceForm({...medicalDeviceForm, ownerDocument: e.target.value})}
+          className="border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
+          required
+        />
+      </div>
+      <div className="flex gap-2 mt-4">
+        <button type="submit" className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">
+          Registrar
+        </button>
+        <button type="button" onClick={() => setShowForm(false)} className="bg-gray-400 text-white px-4 py-2 rounded hover:bg-gray-500">
+          Cancelar
+        </button>
+      </div>
+    </form>
+  );
+
+  const renderComputersList = () => (
+    <div className="space-y-4">
+      {computers.map((comp, idx) => (
+        <div key={idx} className="bg-white p-4 rounded-lg shadow hover:shadow-md transition-shadow">
+          <div className="flex justify-between items-start">
+            <div>
+              <h3 className="font-semibold text-lg text-gray-800">{comp.brand} {comp.model}</h3>
+              <p className="text-gray-600">S/N: {comp.serialNumber}</p>
+              <p className="text-gray-600">Propietario: {comp.ownerName} ({comp.ownerDocument})</p>
+              <p className="text-gray-500 text-sm mt-2">{comp.reason}</p>
+            </div>
+            <Laptop className="text-blue-500" size={32} />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+
+  const renderMedicalDevicesList = () => (
+    <div className="space-y-4">
+      {medicalDevices.map((dev, idx) => (
+        <div key={idx} className="bg-white p-4 rounded-lg shadow hover:shadow-md transition-shadow">
+          <div className="flex justify-between items-start">
+            <div>
+              <h3 className="font-semibold text-lg text-gray-800">{dev.deviceType}</h3>
+              <p className="text-gray-600">{dev.brand} {dev.model}</p>
+              <p className="text-gray-600">S/N: {dev.serialNumber}</p>
+              <p className="text-gray-600">Propietario: {dev.ownerName} ({dev.ownerDocument})</p>
+            </div>
+            <Activity className="text-green-500" size={32} />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+
+  const renderFrequentComputersList = () => (
+    <div className="space-y-4">
+      {frequentComputers.map((comp, idx) => (
+        <div key={idx} className="bg-white p-4 rounded-lg shadow hover:shadow-md transition-shadow">
+          <div className="flex justify-between items-start">
+            <div className="flex-1">
+              <h3 className="font-semibold text-lg text-gray-800">{comp.brand} {comp.model}</h3>
+              <p className="text-gray-600">S/N: {comp.serialNumber}</p>
+              <p className="text-gray-600">Propietario: {comp.ownerName} ({comp.ownerDocument})</p>
+            </div>
+            <button
+              onClick={() => handleFrequentCheckin(comp.id)}
+              className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 flex items-center gap-2"
+            >
+              <Check size={16} />
+              Check-in
+            </button>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+
+  const renderEnteredDevicesList = () => (
+    <div className="space-y-4">
+      {enteredDevices.map((dev, idx) => (
+        <div key={idx} className="bg-white p-4 rounded-lg shadow hover:shadow-md transition-shadow">
+          <div className="flex justify-between items-start">
+            <div className="flex-1">
+              <h3 className="font-semibold text-lg text-gray-800">{dev.deviceType || 'Computadora'}</h3>
+              <p className="text-gray-600">{dev.brand} {dev.model}</p>
+              <p className="text-gray-600">Propietario: {dev.ownerName}</p>
+              <p className="text-gray-500 text-sm">Ingresó: {new Date(dev.entryDate).toLocaleString()}</p>
+            </div>
+            <button
+              onClick={() => handleCheckout(dev.id)}
+              className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 flex items-center gap-2"
+            >
+              <LogOut size={16} />
+              Check-out
+            </button>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-6">
+      <div className="max-w-6xl mx-auto">
+        <header className="bg-white rounded-lg shadow-lg p-6 mb-6">
+          <h1 className="text-3xl font-bold text-gray-800 flex items-center gap-3">
+            <Calendar className="text-blue-600" size={36} />
+            Sistema de Gestión de Dispositivos
+          </h1>
+        </header>
+
+        <div className="flex gap-2 mb-6 flex-wrap">
+          <button
+            onClick={() => setActiveTab('computers')}
+            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+              activeTab === 'computers' ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-100'
+            }`}
+          >
+            <Laptop className="inline mr-2" size={18} />
+            Computadoras
+          </button>
+          <button
+            onClick={() => setActiveTab('medical')}
+            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+              activeTab === 'medical' ? 'bg-green-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-100'
+            }`}
+          >
+            <Activity className="inline mr-2" size={18} />
+            Dispositivos Médicos
+          </button>
+          <button
+            onClick={() => setActiveTab('frequent')}
+            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+              activeTab === 'frequent' ? 'bg-purple-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-100'
+            }`}
+          >
+            <Clock className="inline mr-2" size={18} />
+            Frecuentes
+          </button>
+          <button
+            onClick={() => setActiveTab('entered')}
+            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+              activeTab === 'entered' ? 'bg-orange-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-100'
+            }`}
+          >
+            <Search className="inline mr-2" size={18} />
+            Dispositivos Ingresados
+          </button>
+        </div>
+
+        <button
+          onClick={() => setShowForm(!showForm)}
+          className="bg-indigo-600 text-white px-6 py-3 rounded-lg mb-6 hover:bg-indigo-700 flex items-center gap-2 shadow-lg"
+        >
+          <Plus size={20} />
+          Nuevo Registro
+        </button>
+
+        {showForm && activeTab === 'computers' && renderComputerForm()}
+        {showForm && activeTab === 'medical' && renderMedicalDeviceForm()}
+        {showForm && activeTab === 'frequent' && renderComputerForm()}
+
+        <div className="bg-white rounded-lg shadow-lg p-6">
+          {loading ? (
+            <div className="text-center py-12">
+              <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+              <p className="mt-4 text-gray-600">Cargando...</p>
+            </div>
+          ) : (
+            <>
+              {activeTab === 'computers' && renderComputersList()}
+              {activeTab === 'medical' && renderMedicalDevicesList()}
+              {activeTab === 'frequent' && renderFrequentComputersList()}
+              {activeTab === 'entered' && renderEnteredDevicesList()}
+              
+              {((activeTab === 'computers' && computers.length === 0) ||
+                (activeTab === 'medical' && medicalDevices.length === 0) ||
+                (activeTab === 'frequent' && frequentComputers.length === 0) ||
+                (activeTab === 'entered' && enteredDevices.length === 0)) && (
+                <div className="text-center py-12 text-gray-500">
+                  No hay registros disponibles
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

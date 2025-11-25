@@ -1,0 +1,5 @@
+export * from './computer.service'
+export * from './device.service'
+export * from './medical-device.service'
+export * from './device-history.service'
+export * from './qr.service'
