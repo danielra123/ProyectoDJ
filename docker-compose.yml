@@ -1,0 +1,71 @@
+version: '3.8'
+
+services:
+  # Backend Service (Bun + Elysia)
+  backend:
+    build:
+      context: ./Back
+      dockerfile: Dockerfile.bun
+    container_name: device-backend
+    ports:
+      - "3000:3000"
+    environment:
+      # Better Auth Configuration
+      - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET:-LbagX2VEDutEpP1W8XTrculsiW12OT8n}
+      - BETTER_AUTH_URL=http://localhost:3000
+
+      # Database Configuration
+      - DB_FILE_NAME=db.sqlite
+
+      # Azure Blob Storage (Optional)
+      - AZURE_STORAGE_ACCOUNT=${AZURE_STORAGE_ACCOUNT:-}
+      - AZURE_STORAGE_KEY=${AZURE_STORAGE_KEY:-}
+      - AZURE_CONTAINER_NAME=${AZURE_CONTAINER_NAME:-device-photos}
+
+      # Node Environment
+      - NODE_ENV=production
+    volumes:
+      # Persist databases
+      - ./Back/database.SQLite:/app/database.SQLite
+      - ./Back/devices.db:/app/devices.db
+
+      # Persist uploaded photos (if using filesystem)
+      - backend-photos:/app/uploads
+    networks:
+      - device-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Frontend Service (Vite + React)
+  frontend:
+    build:
+      context: ./Front/device-frontend
+      dockerfile: Dockerfile
+      args:
+        - VITE_API_URL=http://localhost:3000/api
+    container_name: device-frontend
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+    networks:
+      - device-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+networks:
+  device-network:
+    driver: bridge
+
+volumes:
+  backend-photos:
+    driver: local
